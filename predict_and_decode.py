@@ -46,7 +46,10 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_logits(batch: Dict[str, Any]):
+def get_logits(batch: Dict[str, Any],
+               processor: Wav2Vec2Processor,
+               model: Wav2Vec2ForCTC,
+               device: str) -> Dict[str, Any]:
     """Inference with the main Wav2Vec2ForCTC model."""
     array = batch["audio"]["array"]
     inp = processor(
