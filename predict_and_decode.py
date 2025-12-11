@@ -154,9 +154,9 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using device:", device)
     
-    logits_dir = f"{args.results_id}/logits"
+    logits_dir = f"results/{args.results_id}/logits"
     os.makedirs(logits_dir, exist_ok=True)
-    results_dir = f"{args.results_id}/results"
+    results_dir = f"results/{args.results_id}/results"
     os.makedirs(results_dir, exist_ok=True)
     
     for lang in SSCLangs:
