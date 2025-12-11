@@ -176,7 +176,11 @@ if __name__ == "__main__":
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
 
         # Load tsv
-        tsv_file = f"{lang}.tsv"
+        if lang in SSCLangs:
+            tsv_file = os.path.join("data", "multilingual-general", f"{lang}.tsv")
+        elif lang in CVLangs:
+            tsv_file = os.path.join("data", "unseen-langs", f"{lang}.tsv")
+        
         df = pd.read_csv(tsv_file, sep="\t", index_col=False)
 
         transcriptions = [x["decoded"] for x in preds]
