@@ -37,6 +37,12 @@ def get_args() -> argparse.Namespace:
         type=str,
         help="Model name."
     )
+    parser.add_argument(
+        "--beam_width",
+        type=int,
+        default=50,
+        help="Beam width."
+    )
     return parser.parse_args()
 
 
@@ -162,7 +168,8 @@ if __name__ == "__main__":
             preds = load_from_disk(os.path.join(logits_dir, f"{lang}.logits"))
         else:
             preds = process_language(lang,
-                                    beam_width=100)
+                                     model_suffix=args.model
+                                     beam_width=args.beam_width)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
 
         # Load tsv
