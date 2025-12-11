@@ -123,13 +123,13 @@ def process_language(lang: str,
                      beam_width: int = 50,
                      results_dir: str = "results"):
     # test = test_data.filter(lambda x: x["language"] == lang)
-    test = load_dataset(f"{USERNAME}}/mcv-sps-test-{lang}", split="train")
+    test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
     try:
         model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
         processor = Wav2Vec2Processor.from_pretrained(model_name)
         model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
     except:
-        model_name = f"{USERNAME}}/ssc-{lang}-mms-model-mix-adapt-max"
+        model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
         processor = Wav2Vec2Processor.from_pretrained(model_name)
         model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
     print(f"Using model: {model_name}")
