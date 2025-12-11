@@ -168,7 +168,7 @@ if __name__ == "__main__":
             preds = load_from_disk(os.path.join(logits_dir, f"{lang}.logits"))
         else:
             preds = process_language(lang,
-                                     model_suffix=args.model
+                                     model_suffix=args.model,
                                      beam_width=args.beam_width)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
 
