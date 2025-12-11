@@ -149,7 +149,7 @@ def process_language(lang: str,
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    args = get_args()
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using device:", device)
