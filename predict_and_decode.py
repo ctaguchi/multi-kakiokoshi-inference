@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
-from pyctcdecode import build_ctc_decoder
+from pyctcdecode import build_ctcdecoder
 import pandas as pd
 from typing import Dict, Any
 from datasets import load_dataset
