@@ -3,7 +3,7 @@ import os
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 from pyctcdecode import build_ctcdecoder
 import pandas as pd
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datasets import load_dataset, load_from_disk
 import torch
 import argparse
@@ -42,6 +42,11 @@ def get_args() -> argparse.Namespace:
         type=int,
         default=50,
         help="Beam width."
+    )
+    parser.add_argument(
+        "--model_dir",
+        type=str,
+        help="Model directory."
     )
     return parser.parse_args()
 
@@ -124,13 +129,19 @@ def decode(batch: Dict[str, Any],
 def process_language(lang: str,
                      model_suffix: str,
                      beam_width: int = 50,
-                     results_dir: str = "results"):
+                     results_dir: str = "results",
+                     model_dir: Optional[str] = None,
+                     load_remote_model: bool = False):
     # test = test_data.filter(lambda x: x["language"] == lang)
     test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
     try:
-        model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
+        if load_remote_model:
+            model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
+        else:
+            model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
         processor = Wav2Vec2Processor.from_pretrained(model_name)
         model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
+        
     except:
         model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
         processor = Wav2Vec2Processor.from_pretrained(model_name)
@@ -172,7 +183,9 @@ if __name__ == "__main__":
         else:
             preds = process_language(lang,
                                      model_suffix=args.model,
-                                     beam_width=args.beam_width)
+                                     beam_width=args.beam_width,
+                                     model_dir=args.model_dir,
+                                     load_remote_model=False)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
 
         # Load tsv
