@@ -19,6 +19,8 @@ CVLangs = [ # Languages to be trained with Common Voice data
 
 all_langs = SSCLangs + CVLangs
 
+USERNAME = "ctaguchi"
+
 
 def get_args() -> argparse.Namespace:
     """Argument parser."""
@@ -28,6 +30,12 @@ def get_args() -> argparse.Namespace:
         "--results_id",
         type=str,
         help="Results identifier for separating folders."
+    )
+    parser.add_argument(
+        "-m",
+        "--model",
+        type=str,
+        help="Model name."
     )
     return parser.parse_args()
 
@@ -108,13 +116,13 @@ def process_language(lang: str,
                      beam_width: int = 50,
                      results_dir: str = "results"):
     # test = test_data.filter(lambda x: x["language"] == lang)
-    test = load_dataset(f"ctaguchi/mcv-sps-test-{lang}", split="train")
+    test = load_dataset(f"{USERNAME}}/mcv-sps-test-{lang}", split="train")
     try:
-        model_name = f"ctaguchi/ssc-{lang}-mms-model-mix-adapt-max2-2"
+        model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max2-2"
         processor = Wav2Vec2Processor.from_pretrained(model_name)
         model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
     except:
-        model_name = f"ctaguchi/ssc-{lang}-mms-model-mix-adapt-max2"
+        model_name = f"{USERNAME}}/ssc-{lang}-mms-model-mix-adapt-max2"
         processor = Wav2Vec2Processor.from_pretrained(model_name)
         model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
     print(f"Using model: {model_name}")
@@ -139,9 +147,9 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using device:", device)
     
-    logits_dir = "logits"
+    logits_dir = f"{args.results_id}/logits"
     os.makedirs(logits_dir, exist_ok=True)
-    results_dir = "results"
+    results_dir = f"{args.results_id}/results"
     os.makedirs(results_dir, exist_ok=True)
     
     for lang in SSCLangs:
@@ -158,15 +166,15 @@ if __name__ == "__main__":
 
         # Load tsv
         tsv_file = f"{lang}.tsv"
-        tsv = pd.read_csv(tsv_file, sep="\t", index_col=False)
+        df = pd.read_csv(tsv_file, sep="\t", index_col=False)
 
         transcriptions = [x["decoded"] for x in preds]
         paths = [x["path"] for x in preds]
         mapping = dict(zip(paths, transcriptions))
-        tsv["sentence"] = tsv["audio_file"].map(mapping)
+        df["sentence"] = df["audio_file"].map(mapping)
 
         # tsv, preds = process_language(lang)
-        tsv.to_csv(os.path.join(results_dir,
+        df.to_csv(os.path.join(results_dir,
                                 f"{lang}.tsv"),
                 sep="\t",
                 index=False)
