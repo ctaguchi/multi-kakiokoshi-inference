@@ -1,0 +1,12 @@
+[project]
+name = "multi-kakiokoshi-inference"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets==3.6.0",
+    "numpy>=1.26.4",
+    "pyctcdecode>=0.5.0",
+    "transformers>=4.57.3",
+]
