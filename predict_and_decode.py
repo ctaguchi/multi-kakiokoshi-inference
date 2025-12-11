@@ -4,7 +4,7 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 from pyctcdecode import build_ctcdecoder
 import pandas as pd
 from typing import Dict, Any
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 import torch
 import argparse
 
