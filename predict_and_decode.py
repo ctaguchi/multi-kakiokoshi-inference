@@ -226,6 +226,22 @@ def process_language(lang: str,
                                 "device": device},
                         remove_columns=["audio"])
     else:
+        tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
+            model_name,
+            unk_token="[UNK]",
+            pad_token="[PAD]",
+            word_delimiter_token="|",
+            target_lang=lang
+        )
+        feature_extractor = Wav2Vec2FeatureExtractor(
+            feature_size=1,
+            sampling_rate=16000,
+            padding_value=0.0,
+            do_normalize=True,
+            return_attention_mask=True
+        )
+        processor = Wav2Vec2Processor(tokenizer=tokenizer,
+                                      feature_extractor=feature_extractor)
         assert logits is not None
 
     decoder, keep_ids = prepare_decoder(processor,
@@ -261,6 +277,7 @@ if __name__ == "__main__":
             preds = load_from_disk(os.path.join(logits_dir, f"{lang}.logits")) 
         elif args.reuse_logits_path:
             assert os.path.exists(args.reuse_logits_path), "Make sure the logits dir exists."
+            print(f"Reusing the logits from {args.reuse_logits_path}...")
             logits = load_from_disk(os.path.join(args.reuse_logits_path, f"{lang}.logits")) # it might contain preds
             preds = process_language(lang,
                                      model_suffix=args.model,
