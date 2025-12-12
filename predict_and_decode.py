@@ -173,8 +173,8 @@ if __name__ == "__main__":
     results_dir = f"results/{args.results_id}/results"
     os.makedirs(results_dir, exist_ok=True)
     
-    for lang in SSCLangs:
-        if os.path.exists(os.path.join("results", f"{lang}.tsv")):
+    for lang in all_langs:
+        if os.path.exists(os.path.join(results_dir, f"{lang}.tsv")):
             continue
         print(f"Working on {lang}...")
         if os.path.exists(os.path.join(logits_dir, f"{lang}.logits")):
