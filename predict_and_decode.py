@@ -226,6 +226,7 @@ def process_language(lang: str,
                                 "device": device},
                         remove_columns=["audio"])
     else:
+        model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
         tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
             model_name,
             unk_token="[UNK]",
