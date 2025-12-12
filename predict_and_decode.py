@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor, Wav2Vec2Tokenizer, Wav2Vec2FeatureExtractor
 from pyctcdecode import build_ctcdecoder
 import pandas as pd
 from typing import Dict, Any, Optional
@@ -144,12 +144,26 @@ def process_language(lang: str,
             model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
         else:
             model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
-        processor = Wav2Vec2Processor.from_pretrained(model_name)
         model = Wav2Vec2ForCTC.from_pretrained(model_name,
                                                ignore_mismatched_sizes=True).to(device)
+        processor = Wav2Vec2Processor.from_pretrained(model_name)
         
     except:
-        raise ValueError
+        try:
+            model = Wav2Vec2ForCTC.from_pretrained(model_name,
+                                               ignore_mismatched_sizes=True).to(device)
+            tokenizer = Wav2Vec2Tokenizer.from_pretrained(model_name)
+            feature_extractor = Wav2Vec2FeatureExtractor(
+                feature_size=1,
+                sampling_rate=16000,
+                padding_value=0.0,
+                do_normalize=True,
+                return_attention_mask=True
+            )
+            processor = Wav2Vec2Processor(tokenizer=tokenizer,
+                                          feature_extractor=feature_extractor)
+        except:
+            raise ValueError
         # model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
         # processor = Wav2Vec2Processor.from_pretrained(model_name)
         # model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
