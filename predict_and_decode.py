@@ -4,7 +4,7 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor, Wav2Vec2CTCTokenizer
 from pyctcdecode import build_ctcdecoder
 import pandas as pd
 from typing import Dict, Any, Optional
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset, load_from_disk, Dataset
 import torch
 import argparse
 
@@ -69,6 +69,12 @@ def get_args() -> argparse.Namespace:
         type=float,
         default=0.0,
         help="Beta hyperparam. How much we prioritize inserting a new word (space)"
+    )
+    parser.add_argument(
+        "--reuse_logits_path",
+        type=str,
+        default=None,
+        help="Logits path if you want to reuse them."
     )
     return parser.parse_args()
 
@@ -172,50 +178,55 @@ def process_language(lang: str,
                      model_dir: Optional[str] = None,
                      load_remote_model: bool = False,
                      alpha: float = 0.2,
-                     beta: float = 0.0):
+                     beta: float = 0.0,
+                     reuse_logits: bool = False,
+                     logits: Optional[Dataset] = None):
     # test = test_data.filter(lambda x: x["language"] == lang)
-    test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
-    try:
-        if load_remote_model:
-            model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
-        else:
-            model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
-        model = Wav2Vec2ForCTC.from_pretrained(model_name,
-                                               ignore_mismatched_sizes=True).to(device)
-        processor = Wav2Vec2Processor.from_pretrained(model_name)
-        
-    except:
+    if not reuse_logits:
+        test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
         try:
+            if load_remote_model:
+                model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
+            else:
+                model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
             model = Wav2Vec2ForCTC.from_pretrained(model_name,
-                                               ignore_mismatched_sizes=True).to(device)
-            tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
-                model_name,
-                unk_token="[UNK]",
-                pad_token="[PAD]",
-                word_delimiter_token="|",
-                target_lang=lang
-            )
-            feature_extractor = Wav2Vec2FeatureExtractor(
-                feature_size=1,
-                sampling_rate=16000,
-                padding_value=0.0,
-                do_normalize=True,
-                return_attention_mask=True
-            )
-            processor = Wav2Vec2Processor(tokenizer=tokenizer,
-                                          feature_extractor=feature_extractor)
+                                                ignore_mismatched_sizes=True).to(device)
+            processor = Wav2Vec2Processor.from_pretrained(model_name)
+            
         except:
-            raise ValueError
-        # model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
-        # processor = Wav2Vec2Processor.from_pretrained(model_name)
-        # model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
-    print(f"Using model: {model_name}")
+            try:
+                model = Wav2Vec2ForCTC.from_pretrained(model_name,
+                                                ignore_mismatched_sizes=True).to(device)
+                tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
+                    model_name,
+                    unk_token="[UNK]",
+                    pad_token="[PAD]",
+                    word_delimiter_token="|",
+                    target_lang=lang
+                )
+                feature_extractor = Wav2Vec2FeatureExtractor(
+                    feature_size=1,
+                    sampling_rate=16000,
+                    padding_value=0.0,
+                    do_normalize=True,
+                    return_attention_mask=True
+                )
+                processor = Wav2Vec2Processor(tokenizer=tokenizer,
+                                            feature_extractor=feature_extractor)
+            except:
+                raise ValueError
+            # model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
+            # processor = Wav2Vec2Processor.from_pretrained(model_name)
+            # model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
+        print(f"Using model: {model_name}")
 
-    logits = test.map(get_logits,
-                      fn_kwargs={"processor": processor,
-                               "model": model,
-                               "device": device},
-                      remove_columns=["audio"])
+        logits = test.map(get_logits,
+                        fn_kwargs={"processor": processor,
+                                "model": model,
+                                "device": device},
+                        remove_columns=["audio"])
+    else:
+        assert logits is not None
 
     decoder, keep_ids = prepare_decoder(processor,
                                         ngram=ngram,
@@ -247,7 +258,19 @@ if __name__ == "__main__":
         print(f"Working on {lang}...")
         if os.path.exists(os.path.join(logits_dir, f"{lang}.logits")):
             print(f"Found existing logits: {lang}.logits")
-            preds = load_from_disk(os.path.join(logits_dir, f"{lang}.logits"))
+            preds = load_from_disk(os.path.join(logits_dir, f"{lang}.logits")) 
+        elif args.reuse_logits_path:
+            assert os.path.exists(args.reuse_logits_path), "Make sure the logits dir exists."
+            logits = load_from_disk(os.path.join(args.reuse_logits_path, f"{lang}.logits")) # it might contain preds
+            preds = process_language(lang,
+                                     model_suffix=args.model,
+                                     beam_width=args.beam_width,
+                                     ngram=args.ngram,
+                                     model_dir=args.model_dir,
+                                     load_remote_model=args.load_remote_model,
+                                     alpha=args.alpha,
+                                     beta=args.beta,
+                                     reuse_logits=True)
         else:
             preds = process_language(lang,
                                      model_suffix=args.model,
