@@ -159,7 +159,8 @@ def process_language(lang: str,
                        fn_kwargs={"decoder": decoder,
                                   "keep_ids": keep_ids,
                                   "beam_width": beam_width},
-                       num_proc=6)
+                       num_proc=6,
+                       remove_columns=["audio"])
     return preds
 
 
