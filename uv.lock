@@ -309,6 +309,12 @@ wheels = [
 ]
 
 [[package]]
+name = "kenlm"
+version = "0.2.0"
+source = { url = "https://github.com/kpu/kenlm/archive/master.zip" }
+sdist = { hash = "sha256:f935c2ac0be6dd1bf96a5852973dad6103c48e866cf33532459fb1336bea4bfe" }
+
+[[package]]
 name = "lazy-loader"
 version = "0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -407,6 +413,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "datasets" },
+    { name = "kenlm" },
     { name = "librosa" },
     { name = "numpy" },
     { name = "protobuf" },
@@ -419,6 +426,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "datasets", specifier = "==3.6.0" },
+    { name = "kenlm", url = "https://github.com/kpu/kenlm/archive/master.zip" },
     { name = "librosa", specifier = ">=0.11.0" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "protobuf", specifier = ">=6.33.2" },
