@@ -354,6 +354,7 @@ if __name__ == "__main__":
             print("Running grid search to find the best alpha and best beta...")
             best_alpha, best_beta = grid_search_alpha_beta(lang=lang,
                                                            model=model,
+                                                           processor=processor,
                                                            device=device,
                                                            beam_width=args.beam_width,
                                                            ngram=args.ngram,
