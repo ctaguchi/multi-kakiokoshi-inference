@@ -53,6 +53,23 @@ def get_args() -> argparse.Namespace:
         action="store_true",
         help="Load from the hub."
     )
+    parser.add_argument(
+        "--ngram",
+        action="store_true",
+        help="Use ngram decoding."
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.2,
+        help="Alpha hyperparam (how much we trust LM)"
+    )
+    parser.add_argument(
+        "--beta",
+        type=float,
+        default=0.0,
+        help="Beta hyperparam. How much we prioritize inserting a new word (space)"
+    )
     return parser.parse_args()
 
 
@@ -76,7 +93,10 @@ def get_logits(batch: Dict[str, Any],
     return batch
 
 
-def prepare_decoder(processor: Wav2Vec2Processor):
+def prepare_decoder(processor: Wav2Vec2Processor,
+                    ngram: bool,
+                    alpha: float = 0.2,
+                    beta: float = 0.0):
     # id -> token list in order
     vocab_dict = processor.tokenizer.get_vocab()
     sorted_vocab = sorted(vocab_dict.items(), key=lambda x: x[1])
@@ -110,14 +130,24 @@ def prepare_decoder(processor: Wav2Vec2Processor):
     print("len(full_labels) =", len(full_labels))  # should be 82
     print("len(labels)      =", len(labels))       # should be 79
 
-    decoder = build_ctcdecoder(labels)
+    if ngram:
+        kenlm_model_path = os.path.join("ngram", f"5gram_correct_{lang}.binary")
+        decoder = build_ctcdecoder(
+            labels=labels,
+            kenlm_model_path=kenlm_model_path,  # or "char.arpa"
+            alpha=alpha, # LM weight
+            beta=beta, # word insertion / length penalty; lower -> less space insertion
+        )
+    else:
+        decoder = build_ctcdecoder(labels)
     return decoder, keep_ids
 
 
 def decode(batch: Dict[str, Any],
            decoder,
            keep_ids,
-           beam_width: int = 50):
+           beam_width: int = 50,
+           ngram: bool = False):
     """Beam-search decoding.
     Time complexity is T x B x V, where
         - T: time (array size)
@@ -126,7 +156,10 @@ def decode(batch: Dict[str, Any],
     """
     logits = np.array(batch["logits"][0])
     logits_reduced = logits[:, keep_ids]
-    decoded = decoder.decode(logits_reduced, beam_width=beam_width).replace("⁇", "")
+    if ngram:
+        decoded = decoder.decode(logits_reduced)
+    else:
+        decoded = decoder.decode(logits_reduced, beam_width=beam_width).replace("⁇", "")
     batch["decoded"] = decoded
     return batch
 
@@ -134,9 +167,12 @@ def decode(batch: Dict[str, Any],
 def process_language(lang: str,
                      model_suffix: str,
                      beam_width: int = 50,
+                     ngram: bool,
                      results_dir: str = "results",
                      model_dir: Optional[str] = None,
-                     load_remote_model: bool = False):
+                     load_remote_model: bool = False,
+                     alpha: float = 0.2,
+                     beta: float = 0.0):
     # test = test_data.filter(lambda x: x["language"] == lang)
     test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
     try:
@@ -178,15 +214,18 @@ def process_language(lang: str,
     logits = test.map(get_logits,
                       fn_kwargs={"processor": processor,
                                "model": model,
-                               "device": device})
+                               "device": device},
+                      remove_columns=["audio"])
 
-    decoder, keep_ids = prepare_decoder(processor)
+    decoder, keep_ids = prepare_decoder(processor,
+                                        ngram=ngram,
+                                        alpha=alpha,
+                                        beta=beta)
     preds = logits.map(decode,
                        fn_kwargs={"decoder": decoder,
                                   "keep_ids": keep_ids,
                                   "beam_width": beam_width},
-                       num_proc=6,
-                       remove_columns=["audio"])
+                       num_proc=6)
     return preds
 
 
@@ -213,8 +252,11 @@ if __name__ == "__main__":
             preds = process_language(lang,
                                      model_suffix=args.model,
                                      beam_width=args.beam_width,
+                                     ngram=args.ngram,
                                      model_dir=args.model_dir,
-                                     load_remote_model=args.load_remote_model)
+                                     load_remote_model=args.load_remote_model,
+                                     alpha=args.alpha,
+                                     beta=args.beta)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
 
         # Load tsv
