@@ -109,7 +109,9 @@ def get_logits(batch: Dict[str, Any],
         logits = model(inp.input_values.to(device)).logits
 
     batch["logits"] = logits
-    batch["path"] = os.path.basename(batch["audio"]["path"])
+    if batch["audio"]["path"]:
+        # dev doesn't have path
+        batch["path"] = os.path.basename(batch["audio"]["path"])
     return batch
 
 
