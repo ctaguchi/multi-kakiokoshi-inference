@@ -157,7 +157,7 @@ def process_language(lang: str,
                 unk_token="[UNK]",
                 pad_token="[PAD]",
                 word_delimiter_token="|",
-                target_lang=args.language
+                target_lang=lang
             )
             feature_extractor = Wav2Vec2FeatureExtractor(
                 feature_size=1,
