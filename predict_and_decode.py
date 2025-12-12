@@ -145,7 +145,8 @@ def process_language(lang: str,
         else:
             model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
         processor = Wav2Vec2Processor.from_pretrained(model_name)
-        model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
+        model = Wav2Vec2ForCTC.from_pretrained(model_name,
+                                               ignore_mismatched_sizes=True).to(device)
         
     except:
         raise ValueError
