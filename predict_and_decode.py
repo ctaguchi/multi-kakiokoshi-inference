@@ -143,9 +143,10 @@ def process_language(lang: str,
         model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
         
     except:
-        model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
-        processor = Wav2Vec2Processor.from_pretrained(model_name)
-        model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
+        raise ValueError
+        # model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
+        # processor = Wav2Vec2Processor.from_pretrained(model_name)
+        # model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
     print(f"Using model: {model_name}")
 
     logits = test.map(get_logits,
@@ -175,6 +176,7 @@ if __name__ == "__main__":
     
     for lang in all_langs:
         if os.path.exists(os.path.join(results_dir, f"{lang}.tsv")):
+            print(f"Found the results for {lang}, skipping...")
             continue
         print(f"Working on {lang}...")
         if os.path.exists(os.path.join(logits_dir, f"{lang}.logits")):
