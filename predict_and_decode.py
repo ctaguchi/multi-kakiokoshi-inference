@@ -48,6 +48,11 @@ def get_args() -> argparse.Namespace:
         type=str,
         help="Model directory."
     )
+    parser.add_argument(
+        "--load_remote_model",
+        action="store_true",
+        help="Load from the hub."
+    )
     return parser.parse_args()
 
 
@@ -188,7 +193,7 @@ if __name__ == "__main__":
                                      model_suffix=args.model,
                                      beam_width=args.beam_width,
                                      model_dir=args.model_dir,
-                                     load_remote_model=False)
+                                     load_remote_model=args.load_remote_model)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
 
         # Load tsv
