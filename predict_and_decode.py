@@ -7,6 +7,8 @@ from typing import Dict, Any, Optional
 from datasets import load_dataset, load_from_disk, Dataset
 import torch
 import argparse
+import jiwer
+import json
 
 
 SSCLangs = [ # Languages to be trained with Spontaneous Speech Corpus data
@@ -76,6 +78,18 @@ def get_args() -> argparse.Namespace:
         default=None,
         help="Logits path if you want to reuse them."
     )
+    parser.add_argument(
+        "--grid_search",
+        action="store_true",
+        help="If turned on, do grid search of hyperparameters (alpha and beta)."
+    )
+    parser.add_argument(
+        "-l", # CURRENTLY UNUSED
+        "--lang",
+        type=str,
+        default=None,
+        help="If specified, this language will be used for cross-validation (grid search)."
+    )
     return parser.parse_args()
 
 
@@ -99,7 +113,8 @@ def get_logits(batch: Dict[str, Any],
     return batch
 
 
-def prepare_decoder(processor: Wav2Vec2Processor,
+def prepare_decoder(lang: str,
+                    processor: Wav2Vec2Processor,
                     ngram: bool,
                     alpha: float = 0.2,
                     beta: float = 0.0):
@@ -128,7 +143,6 @@ def prepare_decoder(processor: Wav2Vec2Processor,
         labels[blank_pos] = ""
 
     # Optional: map word delimiter to space if present
-    word_delim_id = getattr(processor.tokenizer, "word_delimiter_token_id", None)
     if word_delim_id is not None and word_delim_id in keep_ids:
         delim_pos = keep_ids.index(word_delim_id)
         labels[delim_pos] = " "
@@ -152,8 +166,7 @@ def prepare_decoder(processor: Wav2Vec2Processor,
 def decode(batch: Dict[str, Any],
            decoder,
            keep_ids,
-           beam_width: int = 50,
-           ngram: bool = False):
+           beam_width: int = 50,):
     """Beam-search decoding.
     Time complexity is T x B x V, where
         - T: time (array size)
@@ -162,90 +175,37 @@ def decode(batch: Dict[str, Any],
     """
     logits = np.array(batch["logits"][0])
     logits_reduced = logits[:, keep_ids]
-    if ngram:
-        decoded = decoder.decode(logits_reduced)
-    else:
-        decoded = decoder.decode(logits_reduced, beam_width=beam_width).replace("⁇", "")
+    # if ngram:
+    #     decoded = decoder.decode(logits_reduced)
+    # else:
+    decoded = decoder.decode(logits_reduced, beam_width=beam_width).replace("⁇", "")
     batch["decoded"] = decoded
     return batch
 
 
 def process_language(lang: str,
-                     model_suffix: str,
+                     dataset: Dataset,
+                     model: Wav2Vec2ForCTC,
+                     processor: Wav2Vec2Processor,
                      beam_width: int = 50,
                      ngram: bool = False,
-                     results_dir: str = "results",
-                     model_dir: Optional[str] = None,
-                     load_remote_model: bool = False,
                      alpha: float = 0.2,
                      beta: float = 0.0,
                      reuse_logits: bool = False,
                      logits: Optional[Dataset] = None):
     # test = test_data.filter(lambda x: x["language"] == lang)
     if not reuse_logits:
-        test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
-        try:
-            if load_remote_model:
-                model_name = f"{USERNAME}/ssc-{lang}-{model_suffix}"
-            else:
-                model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
-            model = Wav2Vec2ForCTC.from_pretrained(model_name,
-                                                ignore_mismatched_sizes=True).to(device)
-            processor = Wav2Vec2Processor.from_pretrained(model_name)
-            
-        except:
-            try:
-                model = Wav2Vec2ForCTC.from_pretrained(model_name,
-                                                ignore_mismatched_sizes=True).to(device)
-                tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
-                    model_name,
-                    unk_token="[UNK]",
-                    pad_token="[PAD]",
-                    word_delimiter_token="|",
-                    target_lang=lang
-                )
-                feature_extractor = Wav2Vec2FeatureExtractor(
-                    feature_size=1,
-                    sampling_rate=16000,
-                    padding_value=0.0,
-                    do_normalize=True,
-                    return_attention_mask=True
-                )
-                processor = Wav2Vec2Processor(tokenizer=tokenizer,
-                                            feature_extractor=feature_extractor)
-            except:
-                raise ValueError
-            # model_name = f"{USERNAME}/ssc-{lang}-mms-model-mix-adapt-max"
-            # processor = Wav2Vec2Processor.from_pretrained(model_name)
-            # model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device)
-        print(f"Using model: {model_name}")
-
-        logits = test.map(get_logits,
-                        fn_kwargs={"processor": processor,
-                                "model": model,
-                                "device": device},
-                        remove_columns=["audio"])
+        logits = dataset.map(get_logits,
+                             fn_kwargs={"processor": processor,
+                                        "model": model,
+                                        "device": device},
+                             remove_columns=["audio"])
+        
     else:
-        model_name = os.path.join(model_dir, f"ssc-{lang}-{model_suffix}")
-        tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
-            model_name,
-            unk_token="[UNK]",
-            pad_token="[PAD]",
-            word_delimiter_token="|",
-            target_lang=lang
-        )
-        feature_extractor = Wav2Vec2FeatureExtractor(
-            feature_size=1,
-            sampling_rate=16000,
-            padding_value=0.0,
-            do_normalize=True,
-            return_attention_mask=True
-        )
-        processor = Wav2Vec2Processor(tokenizer=tokenizer,
-                                      feature_extractor=feature_extractor)
         assert logits is not None
 
-    decoder, keep_ids = prepare_decoder(processor,
+    decoder, keep_ids = prepare_decoder(lang=lang,
+                                        processor=processor,
                                         ngram=ngram,
                                         alpha=alpha,
                                         beta=beta)
@@ -255,6 +215,110 @@ def process_language(lang: str,
                                   "beam_width": beam_width},
                        num_proc=6)
     return preds
+
+
+def grid_search_alpha_beta(lang: str,
+                           model: Wav2Vec2ForCTC,
+                           processor: Wav2Vec2Processor,
+                           device: str,
+                           beam_width: int,
+                           ngram: bool,
+                           alpha_values: list[float],
+                           beta_values: list[float],
+                           results_id: str) -> tuple[float, float]:
+    """
+    Simple cross-validation / grid search for (alpha, beta) for one language.
+    Reuses the same logits and calls `process_language` repeatedly with different
+    alpha/beta, then picks the pair that minimizes WER on the given TSV.
+
+    Returns: (best_alpha, best_beta)
+    """
+    best_alpha = None
+    best_beta = None
+    best_wer = float("inf")
+
+    print(f"[{lang}] Starting grid search over alpha, beta...")
+    print("  alpha grid:", alpha_values)
+    print("  beta  grid:", beta_values)
+    
+    # First, get logits for dev
+    dev = load_dataset(f"{USERNAME}/mcv-sps-{lang}-segmented", split="train")
+    # Pick up just the first 20 samples
+    dev = dev.filter(lambda x: x["split"] == "dev").select(range(20))
+    refs = dev["transcription"]
+    logits = dev.map(get_logits,
+                     fn_kwargs={"processor": processor, # define?
+                                "model": model, # define?
+                                "device": device # define?
+                                },
+                     remove_columns=["audio"])
+
+    stats_list = []
+    # We assume `logits` is a Dataset with columns: 'logits', 'path', etc.
+    for alpha in alpha_values:
+        for beta in beta_values:
+            print(f"[{lang}] Trying alpha={alpha}, beta={beta} ...")
+
+            preds = process_language(lang=lang,
+                                     dataset=dev,
+                                     model=model,
+                                     processor=processor,
+                                     beam_width=beam_width,
+                                     ngram=ngram,
+                                     alpha=alpha,
+                                     beta=beta,
+                                     reuse_logits=True,
+                                     logits=logits)
+            
+            wer = jiwer.wer(refs, [x["decoded"] for x in preds])
+            cer = jiwer.cer(refs, [x["decoded"] for x in preds])
+            
+            stats = {"language": lang,
+                     "alpha": alpha,
+                     "beta": beta,
+                     "wer": wer,
+                     "cer": cer}
+            stats_list.append(stats)
+
+            for k, v in stats.items():
+                print(f"{k}: {v}")
+            print("-" * 20)
+            
+            if wer < best_wer:
+                best_wer = wer
+                best_alpha = alpha
+                best_beta = beta
+                print(f"[{lang}]   New best: WER={best_wer:.4f} (alpha={best_alpha}, beta={best_beta})")
+    
+    results_dir = os.path.join("results", results_id)
+    os.makedirs(results_dir, exist_ok=True)
+    with open(os.path.join(results_dir, f"grid_search_results_{lang}.json"), "w") as f:
+        json.dump(stats_list, f, indent=4)
+
+    print(f"[{lang}] Grid search done. Best WER={best_wer:.4f}, alpha={best_alpha}, beta={best_beta}")
+    return best_alpha, best_beta
+
+
+def load_processor(model_name: str,
+                   lang: str):
+    tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
+        model_name,
+        unk_token="[UNK]",
+        pad_token="[PAD]",
+        word_delimiter_token="|",
+        target_lang=lang
+    )
+    feature_extractor = Wav2Vec2FeatureExtractor(
+        feature_size=1,
+        sampling_rate=16000,
+        padding_value=0.0,
+        do_normalize=True,
+        return_attention_mask=True
+    )
+    processor = Wav2Vec2Processor(tokenizer=tokenizer,
+                                feature_extractor=feature_extractor)
+    return processor
+
 
 
 if __name__ == "__main__":
@@ -267,46 +331,81 @@ if __name__ == "__main__":
     os.makedirs(logits_dir, exist_ok=True)
     results_dir = f"results/{args.results_id}/results"
     os.makedirs(results_dir, exist_ok=True)
-    
+        
     for lang in all_langs:
         if os.path.exists(os.path.join(results_dir, f"{lang}.tsv")):
             print(f"Found the results for {lang}, skipping...")
             continue
+        
         print(f"Working on {lang}...")
+        model_name = os.path.join(args.model_dir, f"ssc-{lang}-{args.model}")
+        processor = load_processor(model_name=model_name,
+                                   lang=lang)
+        model = Wav2Vec2ForCTC.from_pretrained(model_name,
+                                               ignore_mismatched_sizes=True).to(device)
+        print("Model and processor loaded.")
+        print("Using model:", model_name)
+        
+        # Grid search
+        alpha_grid = [0.0, 0.25, 0.5, 0.75, 1.0]
+        beta_grid  = [-3.0, -2.0, -1.0, 0.0, 1.0]
+        
+        if args.ngram and args.grid_search:
+            print("Running grid search to find the best alpha and best beta...")
+            best_alpha, best_beta = grid_search_alpha_beta(lang=lang,
+                                                           model=model,
+                                                           device=device,
+                                                           beam_width=args.beam_width,
+                                                           ngram=args.ngram,
+                                                           alpha_values=alpha_grid,
+                                                           beta_values=beta_grid,
+                                                           results_id=args.results_id)
+        else:
+            best_alpha = args.alpha
+            best_beta = args.beta
+        
+        
+        # Test phase
         if os.path.exists(os.path.join(logits_dir, f"{lang}.logits")):
             print(f"Found existing logits: {lang}.logits")
             preds = load_from_disk(os.path.join(logits_dir, f"{lang}.logits")) 
+            
         elif args.reuse_logits_path:
             assert os.path.exists(args.reuse_logits_path), "Make sure the logits dir exists."
             print(f"Reusing the logits from {args.reuse_logits_path}...")
             logits = load_from_disk(os.path.join(args.reuse_logits_path, f"{lang}.logits")) # it might contain preds
+            
             preds = process_language(lang,
-                                     model_suffix=args.model,
+                                     dataset=None,
+                                     model=None,
+                                     processor=processor,
                                      beam_width=args.beam_width,
                                      ngram=args.ngram,
-                                     model_dir=args.model_dir,
-                                     load_remote_model=args.load_remote_model,
-                                     alpha=args.alpha,
-                                     beta=args.beta,
+                                     alpha=best_alpha,
+                                     beta=best_beta,
                                      reuse_logits=True,
                                      logits=logits)
-        else:
+            
+        else:            
+            # Main test inference
+            test = load_dataset(f"{USERNAME}/mcv-sps-test-{lang}", split="train")
             preds = process_language(lang,
-                                     model_suffix=args.model,
+                                     dataset=test,
+                                     model=model,
+                                     processor=processor,
                                      beam_width=args.beam_width,
                                      ngram=args.ngram,
-                                     model_dir=args.model_dir,
-                                     load_remote_model=args.load_remote_model,
-                                     alpha=args.alpha,
-                                     beta=args.beta)
+                                     alpha=best_alpha,
+                                     beta=best_beta)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
-
+            
+        
         # Load tsv
         if lang in SSCLangs:
             tsv_file = os.path.join("data", "multilingual-general", f"{lang}.tsv")
         elif lang in CVLangs:
             tsv_file = os.path.join("data", "unseen-langs", f"{lang}.tsv")
-        
+            
         df = pd.read_csv(tsv_file, sep="\t", index_col=False)
 
         transcriptions = [x["decoded"] for x in preds]
