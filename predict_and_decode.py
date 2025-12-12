@@ -152,7 +152,13 @@ def process_language(lang: str,
         try:
             model = Wav2Vec2ForCTC.from_pretrained(model_name,
                                                ignore_mismatched_sizes=True).to(device)
-            tokenizer = Wav2Vec2Tokenizer.from_pretrained(model_name)
+            tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
+                model_name,
+                unk_token="[UNK]",
+                pad_token="[PAD]",
+                word_delimiter_token="|",
+                target_lang=args.language
+            )
             feature_extractor = Wav2Vec2FeatureExtractor(
                 feature_size=1,
                 sampling_rate=16000,
