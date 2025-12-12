@@ -270,7 +270,8 @@ if __name__ == "__main__":
                                      load_remote_model=args.load_remote_model,
                                      alpha=args.alpha,
                                      beta=args.beta,
-                                     reuse_logits=True)
+                                     reuse_logits=True,
+                                     logits=logits)
         else:
             preds = process_language(lang,
                                      model_suffix=args.model,
