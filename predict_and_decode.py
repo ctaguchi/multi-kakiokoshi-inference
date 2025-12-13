@@ -87,7 +87,8 @@ def get_args() -> argparse.Namespace:
         "-l", # CURRENTLY UNUSED
         "--lang",
         type=str,
-        default=None,
+        nargs="*",
+        default=[],
         help="If specified, this language will be used for cross-validation (grid search)."
     )
     return parser.parse_args()
@@ -333,7 +334,9 @@ if __name__ == "__main__":
     os.makedirs(logits_dir, exist_ok=True)
     results_dir = f"results/{args.results_id}/results"
     os.makedirs(results_dir, exist_ok=True)
-        
+    
+    if args.lang:
+        all_langs = args.lang
     for lang in all_langs:
         if os.path.exists(os.path.join(results_dir, f"{lang}.tsv")):
             print(f"Found the results for {lang}, skipping...")
