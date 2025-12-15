@@ -62,7 +62,8 @@ def get_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--spm",
-        action="store_true",
+        type=str,
+        default=None,
         help="Use sentencepiece-based BPE 5-gram decoding."
     )
     parser.add_argument(
@@ -161,7 +162,10 @@ def prepare_decoder(lang: str,
 
     if ngram:
         if spm:
-            kenlm_model_path = os.path.join("spm500-5gram-binary", f"sp-5gram-{lang}.binary")
+            if type(spm) == str:
+                spm_model_path = spm
+            else:
+                kenlm_model_path = os.path.join("spm500-5gram-binary", f"sp-5gram-{lang}.binary")
         else:
             kenlm_model_path = os.path.join("ngram", f"5gram_correct_{lang}.binary")
         # pyctcdecode will automatically detects whether the model is BPE-based or not
