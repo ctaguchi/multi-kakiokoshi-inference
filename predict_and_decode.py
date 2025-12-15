@@ -163,7 +163,10 @@ def prepare_decoder(lang: str,
     if ngram:
         if spm:
             if type(spm) == str:
-                spm_model_path = spm
+                if "9" in spm:
+                    kenlm_model_path = os.path.join(spm, f"sp-9gram-{lang}.binary") # maybe we need to change this later
+                else:
+                    raise ValueError
             else:
                 kenlm_model_path = os.path.join("spm500-5gram-binary", f"sp-5gram-{lang}.binary")
         else:
