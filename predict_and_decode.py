@@ -61,6 +61,11 @@ def get_args() -> argparse.Namespace:
         help="Use ngram decoding."
     )
     parser.add_argument(
+        "--spm",
+        action="store_true",
+        help="Use sentencepiece-based BPE 5-gram decoding."
+    )
+    parser.add_argument(
         "--alpha",
         type=float,
         default=0.2,
@@ -119,6 +124,7 @@ def get_logits(batch: Dict[str, Any],
 def prepare_decoder(lang: str,
                     processor: Wav2Vec2Processor,
                     ngram: bool,
+                    spm: bool,
                     alpha: float = 0.2,
                     beta: float = 0.0):
     # id -> token list in order
@@ -154,7 +160,11 @@ def prepare_decoder(lang: str,
     print("len(labels)      =", len(labels))       # should be 79
 
     if ngram:
-        kenlm_model_path = os.path.join("ngram", f"5gram_correct_{lang}.binary")
+        if spm:
+            kenlm_model_path = os.path.join("spm500-5gram-binary", f"sp-5gram-{lang}.binary")
+        else:
+            kenlm_model_path = os.path.join("ngram", f"5gram_correct_{lang}.binary")
+        # pyctcdecode will automatically detects whether the model is BPE-based or not
         decoder = build_ctcdecoder(
             labels=labels,
             kenlm_model_path=kenlm_model_path,  # or "char.arpa"
@@ -192,6 +202,7 @@ def process_language(lang: str,
                      processor: Wav2Vec2Processor,
                      beam_width: int = 50,
                      ngram: bool = False,
+                     spm: bool = False,
                      alpha: float = 0.2,
                      beta: float = 0.0,
                      reuse_logits: bool = False,
@@ -210,6 +221,7 @@ def process_language(lang: str,
     decoder, keep_ids = prepare_decoder(lang=lang,
                                         processor=processor,
                                         ngram=ngram,
+                                        spm=spm,
                                         alpha=alpha,
                                         beta=beta)
     preds = logits.map(decode,
@@ -226,6 +238,7 @@ def grid_search_alpha_beta(lang: str,
                            device: str,
                            beam_width: int,
                            ngram: bool,
+                           spm: bool,
                            alpha_values: list[float],
                            beta_values: list[float],
                            results_id: str) -> tuple[float, float]:
@@ -268,6 +281,7 @@ def grid_search_alpha_beta(lang: str,
                                      processor=processor,
                                      beam_width=beam_width,
                                      ngram=ngram,
+                                     spm=spm,
                                      alpha=alpha,
                                      beta=beta,
                                      reuse_logits=True,
@@ -363,6 +377,7 @@ if __name__ == "__main__":
                                                            device=device,
                                                            beam_width=args.beam_width,
                                                            ngram=args.ngram,
+                                                           spm=args.spm,
                                                            alpha_values=alpha_grid,
                                                            beta_values=beta_grid,
                                                            results_id=args.results_id)
@@ -387,6 +402,7 @@ if __name__ == "__main__":
                                      processor=processor,
                                      beam_width=args.beam_width,
                                      ngram=args.ngram,
+                                     spm=args.spm,
                                      alpha=best_alpha,
                                      beta=best_beta,
                                      reuse_logits=True,
@@ -401,6 +417,7 @@ if __name__ == "__main__":
                                      processor=processor,
                                      beam_width=args.beam_width,
                                      ngram=args.ngram,
+                                     spm=args.spm
                                      alpha=best_alpha,
                                      beta=best_beta)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
