@@ -417,7 +417,7 @@ if __name__ == "__main__":
                                      processor=processor,
                                      beam_width=args.beam_width,
                                      ngram=args.ngram,
-                                     spm=args.spm
+                                     spm=args.spm,
                                      alpha=best_alpha,
                                      beta=best_beta)
             preds.save_to_disk(os.path.join(logits_dir, f"{lang}.logits"))
