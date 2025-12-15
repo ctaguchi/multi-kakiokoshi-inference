@@ -9,6 +9,9 @@ import torch
 import argparse
 import jiwer
 import json
+import kenlm, sys # debug
+print(sys.executable)
+print(kenlm.__file__)
 
 
 SSCLangs = [ # Languages to be trained with Spontaneous Speech Corpus data
