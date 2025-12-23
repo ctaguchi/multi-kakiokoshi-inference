@@ -128,8 +128,8 @@ def logits_from_audio_array(audio_array: np.ndarray,
 
 def prepare_decoder(processor: Wav2Vec2Processor,
                     kenlm_model: Optional[str] = None,
-                    alpha: Optional[float] = None,
-                    beta: Optional[float] = None):
+                    alpha: Optional[float] = 0.2,
+                    beta: Optional[float] = 0.5):
     """Prepare a CTC decoder with pyctcdecode.
     If kenlm_model is not None, an n-gram language model will be used.
     """
