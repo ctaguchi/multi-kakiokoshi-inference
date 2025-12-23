@@ -17,16 +17,6 @@ LOCAL_MODEL_DIR = "/afs/crc/group/nlp/11/ctaguchi/multi-kakiokoshi-models"
 KENLM_MODEL_PATH = os.path.join(THIS_DIR, "../{n}gram/{n}gram_{lang}_correct.binary")
 USERNAME = "ctaguchi"
 
-# global singletons
-# load model
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Device: {device}")
-
-model, processor = load_model_and_processor(lang=args.language,
-                                            model_name=MODEL_MAP[args.model],
-                                            use_local_model=args.use_local_model)
-model = model.to(device)
-
 
 def get_args() -> argparse.Namespace:
     """Argument parser."""
