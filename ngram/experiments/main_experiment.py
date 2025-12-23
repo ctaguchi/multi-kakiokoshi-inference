@@ -260,7 +260,9 @@ def main(args: argparse.Namespace) -> None:
     # evaluate
     stats = eval(ds)
     # save
-    with open(os.path.join(THIS_DIR, f"stats_{args.language}.json"), "w") as f:
+    stats_path = os.path.join(THIS_DIR, "stats", f"stats_{args.language}.json")
+    os.makedirs(stats_path, exist_ok=True)
+    with open(stats_path, "w") as f:
         json.dump(stats, f, indent=4)
     
 
