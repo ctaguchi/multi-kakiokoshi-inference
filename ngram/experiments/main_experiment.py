@@ -6,7 +6,7 @@ from pyctcdecode import build_ctcdecoder, BeamSearchDecoderCTC
 import jiwer
 import json
 import argparse
-from typing import Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional
 import os
 
 
@@ -173,15 +173,14 @@ def prepare_decoder(processor: Wav2Vec2Processor,
                                    beta=beta)
     else:
         decoder = build_ctcdecoder(labels)
-    # return decoder, keep_ids
-    return decoder
+    return decoder, keep_ids
 
 
 def multidecode(batch: dict,
                 model: Wav2Vec2ForCTC,
                 processor: Wav2Vec2Processor,
                 device: str,
-                decoders: Dict[str, BeamSearchDecoderCTC],
+                decoders: Dict[str, Dict[str, List[int] | BeamSearchDecoderCTC]],
                 beam_width: int = 50,
                 sampling_rate: int = 16000) -> dict:
     """Decode with multiple decoding methods."""
@@ -199,8 +198,11 @@ def multidecode(batch: dict,
     
     # Beam search, N-gram
     logits = logits.cpu().numpy()[0] # pyctcdecode doesn't accept torch.Tensor
-    for decoder_name, decoder in decoders.items():
-        decoded = decoder.decode(logits, beam_width=beam_width)
+    for decoder_name, decoder_dict in decoders.items():
+        keep_ids = decoder_dict["keep_ids"]
+        decoder = decoder_dict["decoder"]
+        logits_reduced = logits[:, keep_ids]
+        decoded = decoder.decode(logits_reduced, beam_width=beam_width)
         batch[f"{decoder_name}_pred"] = decoded
     
     return batch
@@ -239,14 +241,19 @@ def main(args: argparse.Namespace) -> None:
                         use_local_dataset=False)
     
     # prepare decoders
-    beam_search_decoder = prepare_decoder(processor=processor)
-    bigram_decoder = prepare_decoder(processor=processor,
+    beam_search_decoder, beam_keep_ids = prepare_decoder(processor=processor)
+    bigram_decoder, bigram_keep_ids = prepare_decoder(processor=processor,
                                      kenlm_model=KENLM_MODEL_PATH.format(n=2, lang=args.language))
-    pentagram_decoder = prepare_decoder(processor=processor,
+    pentagram_decoder, pentagram_keep_ids= prepare_decoder(processor=processor,
                                         kenlm_model=KENLM_MODEL_PATH.format(n=5, lang=args.language))
-    decoders = {"beam_search_decoder": beam_search_decoder,
-                "2gram_decoder": bigram_decoder,
-                "5gram_decoder": pentagram_decoder}
+    decoders = {
+        "beam_search_decoder": {"decoder": beam_search_decoder,
+                                "keep_ids": beam_keep_ids},
+        "2gram_decoder": {"decoder": bigram_decoder,
+                          "keep_ids": bigram_keep_ids},
+        "5gram_decoder": {"decoder": pentagram_decoder,
+                          "keep_ids": pentagram_keep_ids}
+    }
     
     # run inference
     ds = ds.map(multidecode,
