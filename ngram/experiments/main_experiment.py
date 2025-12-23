@@ -173,7 +173,8 @@ def prepare_decoder(processor: Wav2Vec2Processor,
                                    beta=beta)
     else:
         decoder = build_ctcdecoder(labels)
-    return decoder, keep_ids
+    # return decoder, keep_ids
+    return decoder
 
 
 def multidecode(batch: dict,

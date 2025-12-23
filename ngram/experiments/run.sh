@@ -37,5 +37,6 @@ for LANG in "${LANGUAGES[@]}"; do
         --model max3 \
         --use_local_model \
         --beam_width 50
+    mail -s "${LANG} done." ctaguchi@nd.edu < stats/stats_${LANG}.json
 done
     
