@@ -213,7 +213,8 @@ def main(args: argparse.Namespace) -> None:
     print(f"Device: {device}")
     
     model, processor = load_model_and_processor(lang=args.language,
-                                                model_name=MODEL_MAP[args.model])
+                                                model_name=MODEL_MAP[args.model],
+                                                use_local_model=args.use_local_model)
     model.to(device)
     
     # load dev data
