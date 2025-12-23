@@ -227,6 +227,14 @@ def eval(ds: Dataset) -> Dict[str, float]:
 
 
 def main(args: argparse.Namespace) -> None:
+    # load model
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Device: {device}")
+
+    model, processor = load_model_and_processor(lang=args.language,
+                                                model_name=MODEL_MAP[args.model],
+                                                use_local_model=args.use_local_model)
+    model = model.to(device)
     
     # load dev data
     ds = load_eval_data(lang=args.language,
