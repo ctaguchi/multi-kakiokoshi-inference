@@ -31,7 +31,11 @@ LANGUAGES=(
     ukv
 )
 
-for LANG in "${LANGUAGES[@]}"; do
+# debug
+START=0
+LEN=1
+
+for LANG in "${LANGUAGES[@]:START:LEN}"; do
     uv run python main_experiment.py \
         --language $LANG \
         --model max3 \
