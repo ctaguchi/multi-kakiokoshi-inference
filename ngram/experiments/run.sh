@@ -32,10 +32,10 @@ LANGUAGES=(
 )
 
 # debug
-START=0
-LEN=1
+# START=0
+# LEN=1
 
-for LANG in "${LANGUAGES[@]:START:LEN}"; do
+for LANG in "${LANGUAGES[@]}"; do
     uv run python main_experiment.py \
         --language $LANG \
         --model max3 \
