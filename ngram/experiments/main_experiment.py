@@ -1,4 +1,4 @@
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor, Wav2Vec2CTCTokenizer, Wav2Vec2FeatureExtractor
 from datasets import Dataset, load_from_disk, load_dataset
 import torch
 import numpy as np
@@ -66,13 +66,28 @@ def load_model_and_processor(lang: str,
     """
     model_id = model_name.format(lang=lang)
     if use_local_model:
-        model_dir = os.path.join(LOCAL_MODEL_DIR, model_id)
-        model = Wav2Vec2ForCTC.from_pretrained(model_dir)
-        processor = Wav2Vec2Processor.from_pretrained(model_dir)
+        model_path = os.path.join(LOCAL_MODEL_DIR, model_id)
     else:
-        
-        model = Wav2Vec2ForCTC.from_pretrained(f"{USERNAME}/{model_id}")
-        processor = Wav2Vec2Processor.from_pretrained(f"{USERNAME}/{model_id}")
+        model_path = f"{USERNAME}/{model_id}"
+    
+    model = Wav2Vec2ForCTC.from_pretrained(model_path)
+    # construct processor from scratch to avoid `TypeError: unhashable type: 'dict'`
+    tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
+        model_path,
+        unk_token="[UNK]",
+        pad_token="[PAD]",
+        word_delimiter_token="|",
+        target_lang=lang
+    )
+    feature_extractor = Wav2Vec2FeatureExtractor(
+        feature_size=1,
+        sampling_rate=16000,
+        padding_value=0.0,
+        do_normalize=True,
+        return_attention_mask=True
+    )
+    processor = Wav2Vec2Processor(tokenizer=tokenizer,
+                                  feature_extractor=feature_extractor)
     return model, processor
 
 
