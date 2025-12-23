@@ -244,7 +244,7 @@ def main(args: argparse.Namespace) -> None:
     # evaluate
     stats = eval(ds)
     # save
-    with open(os.path.join(THIS_DIR, "stats.json"), "w") as f:
+    with open(os.path.join(THIS_DIR, f"stats_{args.language}.json"), "w") as f:
         json.dump(stats, f, indent=4)
     
 
