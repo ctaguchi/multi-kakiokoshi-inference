@@ -17,6 +17,16 @@ LOCAL_MODEL_DIR = "/afs/crc/group/nlp/11/ctaguchi/multi-kakiokoshi-models"
 KENLM_MODEL_PATH = os.path.join(THIS_DIR, "../{n}gram/{n}gram_{lang}_correct.binary")
 USERNAME = "ctaguchi"
 
+# global singletons
+# load model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Device: {device}")
+
+model, processor = load_model_and_processor(lang=args.language,
+                                            model_name=MODEL_MAP[args.model],
+                                            use_local_model=args.use_local_model)
+model = model.to(device)
+
 
 def get_args() -> argparse.Namespace:
     """Argument parser."""
@@ -99,8 +109,8 @@ def load_eval_data(lang: str,
         ds = load_from_disk(ds_path)
     else:
         # load from Hugging Face Hub
-        ds = load_dataset(REMOTE_DATA_ID.format(lang=lang))
-    
+        ds = load_dataset(REMOTE_DATA_ID.format(lang=lang), split="train")
+ 
     if use_dev:
         dev = ds.filter(lambda x: x["split"] == "dev")
     else:
@@ -189,7 +199,8 @@ def multidecode(batch: dict,
         model=model,
         processor=processor,
         device=device,
-        sampling_rate=sampling_rate)
+        sampling_rate=sampling_rate
+    )
     
     # Greedy
     pred_ids = torch.argmax(logits, dim=-1)
@@ -226,14 +237,6 @@ def eval(ds: Dataset) -> Dict[str, float]:
 
 
 def main(args: argparse.Namespace) -> None:
-    # load model
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Device: {device}")
-    
-    model, processor = load_model_and_processor(lang=args.language,
-                                                model_name=MODEL_MAP[args.model],
-                                                use_local_model=args.use_local_model)
-    model.to(device)
     
     # load dev data
     ds = load_eval_data(lang=args.language,
