@@ -64,7 +64,7 @@ def load_model_and_processor(lang: str,
     The model path looks something like: `ctaguchi/ssc-sco-mms-model-mix-adapt-max3` if loaded remotely.
     If loaded locally, we need to use the local path.
     """
-    model_id = MODEL_MAP[model_name].format(lang=lang)
+    model_id = model_name.format(lang=lang)
     if use_local_model:
         model_dir = os.path.join(LOCAL_MODEL_DIR, model_id)
         model = Wav2Vec2ForCTC.from_pretrained(model_dir)
