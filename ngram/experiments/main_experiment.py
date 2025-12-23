@@ -25,7 +25,7 @@ def get_args() -> argparse.Namespace:
         "-l",
         "--language",
         type=str,
-        choice=["ady", "bas", "kbd", "qxp", "ush",
+        choices=["ady", "bas", "kbd", "qxp", "ush",
                 "aln", "bew", "bxk", "cgg", "el-CY",
                 "hch", "kcn", "koo", "led", "lke",
                 "lth", "meh", "mmc", "pne", "ruc",
@@ -37,7 +37,7 @@ def get_args() -> argparse.Namespace:
         "-m",
         "--model",
         type=str,
-        choice=["max3"],
+        choices=["max3"],
         help="Model group, e.g. max3."
     )
     parser.add_argument(
